@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Game with Centered KMU and Random Start</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        #gameCanvas {
+            border: 2px solid #333;
+        }
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="score">Score: 0</div>
+    <canvas id="gameCanvas" width="600" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+
+        const gridSize = 20;
+        const tileCount = canvas.width / gridSize;
+
+        let snake = [];
+        let food = {x: 5, y: 5};
+        let dx = 0;
+        let dy = 0;
+        let score = 0;
+
+        // KMU 장애물을 정확히 중앙에 배치
+        const centerX = Math.floor(tileCount / 2) - 7; // KMU의 폭이 약 14 타일이므로 7을 뺍니다.
+        const centerY = Math.floor(tileCount / 2) - 2; // KMU의 높이가 약 5 타일이므로 2를 뺍니다.
+        const obstacles = [
+            // K
+            {x: centerX, y: centerY}, {x: centerX, y: centerY+1}, {x: centerX, y: centerY+2}, {x: centerX, y: centerY+3}, {x: centerX, y: centerY+4},
+            {x: centerX+1, y: centerY+2}, {x: centerX+2, y: centerY+1}, {x: centerX+2, y: centerY+3}, {x: centerX+3, y: centerY}, {x: centerX+3, y: centerY+4},
+            // M
+            {x: centerX+5, y: centerY}, {x: centerX+5, y: centerY+1}, {x: centerX+5, y: centerY+2}, {x: centerX+5, y: centerY+3}, {x: centerX+5, y: centerY+4},
+            {x: centerX+6, y: centerY+1}, {x: centerX+7, y: centerY+2}, {x: centerX+8, y: centerY+1},
+            {x: centerX+9, y: centerY}, {x: centerX+9, y: centerY+1}, {x: centerX+9, y: centerY+2}, {x: centerX+9, y: centerY+3}, {x: centerX+9, y: centerY+4},
+            // U
+            {x: centerX+11, y: centerY}, {x: centerX+11, y: centerY+1}, {x: centerX+11, y: centerY+2}, {x: centerX+11, y: centerY+3},
+            {x: centerX+12, y: centerY+4}, {x: centerX+13, y: centerY+4},
+            {x: centerX+14, y: centerY}, {x: centerX+14, y: centerY+1}, {x: centerX+14, y: centerY+2}, {x: centerX+14, y: centerY+3}
+        ];
+
+        function initGame() {
+            snake = [getRandomPosition()];
+            generateFood();
+            dx = 0;
+            dy = 0;
+            score = 0;
+        }
+
+        function getRandomPosition() {
+            let position;
+            do {
+                position = {
+                    x: Math.floor(Math.random() * tileCount),
+                    y: Math.floor(Math.random() * tileCount)
+                };
+            } while (isCollision(position));
+            return position;
+        }
+
+        function drawGame() {
+            clearCanvas();
+            moveSnake();
+            drawSnake();
+            drawFood();
+            drawObstacles();
+            checkCollision();
+            updateScore();
+        }
+
+        function clearCanvas() {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function moveSnake() {
+            const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+            snake.unshift(head);
+
+            if (head.x === food.x && head.y === food.y) {
+                score++;
+                generateFood();
+            } else {
+                snake.pop();
+            }
+        }
+
+        function drawSnake() {
+            ctx.fillStyle = 'green';
+            snake.forEach(segment => {
+                ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize - 2, gridSize - 2);
+            });
+        }
+
+        function drawFood() {
+            ctx.fillStyle = 'red';
+            ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);
+        }
+
+        function drawObstacles() {
+            ctx.fillStyle = 'blue';
+            obstacles.forEach(obstacle => {
+                ctx.fillRect(obstacle.x * gridSize, obstacle.y * gridSize, gridSize - 2, gridSize - 2);
+            });
+        }
+
+        function generateFood() {
+            do {
+                food.x = Math.floor(Math.random() * tileCount);
+                food.y = Math.floor(Math.random() * tileCount);
+            } while (isCollision(food));
+        }
+
+        function isCollision(position) {
+            return snake.some(segment => segment.x === position.x && segment.y === position.y) ||
+                   obstacles.some(obstacle => obstacle.x === position.x && obstacle.y === position.y);
+        }
+
+        function checkCollision() {
+            const head = snake[0];
+
+            if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+                initGame();
+            }
+
+            for (let i = 1; i < snake.length; i++) {
+                if (head.x === snake[i].x && head.y === snake[i].y) {
+                    initGame();
+                }
+            }
+
+            if (obstacles.some(obstacle => head.x === obstacle.x && head.y === obstacle.y)) {
+                initGame();
+            }
+        }
+
+        function updateScore() {
+            scoreElement.textContent = `Score: ${score}`;
+        }
+
+        document.addEventListener('keydown', changeDirection);
+
+        function changeDirection(event) {
+            const LEFT_KEY = 37;
+            const RIGHT_KEY = 39;
+            const UP_KEY = 38;
+            const DOWN_KEY = 40;
+
+            const keyPressed = event.keyCode;
+            const goingUp = dy === -1;
+            const goingDown = dy === 1;
+            const goingRight = dx === 1;
+            const goingLeft = dx === -1;
+
+            if (keyPressed === LEFT_KEY && !goingRight) {
+                dx = -1;
+                dy = 0;
+            }
+            if (keyPressed === UP_KEY && !goingDown) {
+                dx = 0;
+                dy = -1;
+            }
+            if (keyPressed === RIGHT_KEY && !goingLeft) {
+                dx = 1;
+                dy = 0;
+            }
+            if (keyPressed === DOWN_KEY && !goingUp) {
+                dx = 0;
+                dy = 1;
+            }
+        }
+
+        function gameLoop() {
+            drawGame();
+            setTimeout(gameLoop, 100);
+        }
+
+        initGame();
+        gameLoop();
+    </script>
+</body>
+</html>
